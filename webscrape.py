@@ -12,6 +12,8 @@ def get_request(link):
             time.sleep(10)
     return ans
 
+# https://developers.google.com/custom-search/v1/overview
+
 def main():
     start = last = datetime.datetime.now()
     filename = open('events-US-1980-2024-Q4.csv') 
