@@ -12,7 +12,7 @@ OUTPUT_FILE = os.path.join(SCRIPT_DIR, "climate_disaster_articles.csv")
 
 # Settings 
 RESULTS_PER_EVENT = 5 # Number of articles per disaster to retrieve (max 10 per API call)
-DATE_RESTRICT = None   # limit by recency, write None for no limit or "y5" for 5 year limit
+DATE_RESTRICT = None  # limit by recency, write None for no limit or "y5" for 5 year limit
 
 # Function: Run a Google Custom Search API query
 def google_search(query, num_results=10, date_restrict=None):
