@@ -2,7 +2,6 @@ import pandas as pd
 import requests, os, time
 
 # CREDENTIALS AND FILES
-
 API_KEY = "AIzaSyAUb_oRdWC6bC4E1jubjtzY9h5vlww_HMs" 
 CSE_ID  = "a5a3e56ad70ea4717"
 
@@ -11,7 +10,7 @@ INPUT_FILE  = os.path.join(SCRIPT_DIR, "events-US-1980-2024-Q4.csv")
 OUTPUT_FILE = os.path.join(SCRIPT_DIR, "climate_disaster_articles.csv")
 
 # Settings 
-RESULTS_PER_EVENT = 5 # Number of articles per disaster to retrieve (max 10 per API call)
+RESULTS_PER_EVENT = 3 # Number of articles per disaster to retrieve (max 10 per API call)
 DATE_RESTRICT = None  # limit by recency, write None for no limit or "y5" for 5 year limit
 
 # Function: Run a Google Custom Search API query
@@ -31,7 +30,7 @@ def google_search(query, num_results=10, date_restrict=None):
     data = resp.json()
     return data.get("items", [])
 
-# Function: Build one search query from one row of the climate disaster CSV from NOAA
+# Function: Build one search query from one row of the climate disaster CSV
 def build_query(row):
     parts = []
 
@@ -46,19 +45,16 @@ def build_query(row):
     # Extra keywords to steer toward relevant news
     parts.append("news")
 
-    query = " ".join(parts)
-    return query
+    return " ".join(parts)
 
 def main():
     df = pd.read_csv(INPUT_FILE) # Load climate disaster dataset
-
     all_results = []
-
     print(f"Loaded {len(df)} disaster entries.\n Beginning scraping with Google Search API...\n")
 
     for idx, row in df.iterrows():
-        if idx >= 2: # Limit to 2 events for testing
-            break
+        # if idx >= 2: # Limit to 2 events for testing
+        #     break
         query = build_query(row)
         print(f"[{idx+1}/{len(df)}] Searching: {query}")
 
@@ -69,11 +65,11 @@ def main():
                 date_restrict=DATE_RESTRICT
             )
         except Exception as e:
-            print("  ERROR:", e)
+            print("ERROR:", e)
             continue
 
         if not items:
-            print("  No results returned.")
+            print("No results returned.")
             continue
 
         # Use the row index as a simple event_id
