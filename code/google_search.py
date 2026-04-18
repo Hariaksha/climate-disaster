@@ -40,8 +40,8 @@ TEST_MODE = True   # ← set to False for full production run
 BLOCKED_URL_PATTERNS = [
     "/sitemap", "/arc/outboundfeeds", "/tags/", "/tag/", "/photos-",
     "/category/", "/author/", "/feed/", "/rss/", "/page/",
-    "/search/", "/weather/", "/elections/", "/results/race/", "/sports/",
-    "/opinion/", "/letters/", "/obituaries/",
+    "/search/", "/weather/forecast", "/opinion/", "/letters/", "/obituaries/",
+    "/weather/maps", "/weather/radar", "/weather/alerts", "/weather/conditions", "/elections/", "/results/race/", "/sports/",
     "/corrections/", "/newsletter/", "/newsletters/", "/podcast/", "/podcasts/", "/shows/", 
     "/channel/",  # YouTube channel page
     "/watch",              # YouTube watch URLs (also covered by youtube.com domain block below)
@@ -50,7 +50,7 @@ BLOCKED_URL_PATTERNS = [
     "/drought-monitor",       # monitor/dashboard pages
     "/live-updates",          # live blog index pages (not individual articles)
     "/photo-gallery",         # gallery pages
-    "/photos/", "/video/", "/live",               # video pages without article text
+    "/photos/", "/video/", "/live-blog",               # video pages without article text
     "/videos/", "/sponsored/",            # sponsored content
     "/advertorial/", "/press-release/",
 ]
@@ -94,7 +94,8 @@ DISASTER_KEYWORDS = {
 NOISE_PHRASES = [
     "cfp title", "college football", "nfl", "nba", "mlb", "nhl", "trump lobs", "trump insults", "election results", "election day", "polling place", "voter turnout", 
     "campaign trail", "bootcamp", "china flood", "china flooding", "africa drought", "kenya", "europe heat", "european heat", "mexico heat", "pakistan fires", 
-    "pakistan military", "obama mccain", "debate transcript", "hedge fund", "mcclatchy", "newspaper chain", "mysterious object", "oil prices", "falling oil", "internet access", "gas prices"
+    "pakistan military", "obama mccain", "debate transcript", "hedge fund", "mcclatchy", "newspaper chain", "mysterious object", "oil prices", "falling oil", "internet access", "gas prices",
+    "bermuda", "canada water", "sex abuse lawsuit", "child abuse lawsuit"
 ]
 
 
@@ -180,6 +181,8 @@ def build_queries(row):
             f"{region_text} freeze {year} {geo}" if region_text else f"freeze {year} {geo}",
             f"{region_text} frost freeze {year} {geo}" if region_text else f"frost freeze {year} {geo}",
             f"freeze {month_text} {year} {geo}",
+            f"{region_text} \"hard freeze\" {year} {geo}" if region_text else f"\"hard freeze\" {year} {geo}",  
+            f"{region_text} \"killing frost\" {year} {geo}" if region_text else f"\"killing frost\" {year} {geo}",
         ])
 
     elif disaster_type == "Severe Storm":
@@ -189,6 +192,7 @@ def build_queries(row):
                 f"{region_text} tornado hail {year} {geo}" if region_text else f"tornado hail {year} {geo}",
                 f"{region_text} \"severe weather\" {year} {geo}" if region_text else f"\"severe weather\" {year} {geo}",
                 f"{region_text} tornado outbreak {year} {geo}" if region_text else f"tornado outbreak {year} {geo}",
+                f"{region_text} \"storm damage\" {month_text} {year} {geo}" if region_text else f"\"storm damage\" {month_text} {year} {geo}",
             ])
         elif "tornado" in lower_name:
             queries.extend([
@@ -196,6 +200,7 @@ def build_queries(row):
                 f"{region_text} tornado outbreak {year} {geo}" if region_text else f"tornado outbreak {year} {geo}",
                 f"{region_text} tornadoes {month_text} {year} {geo}" if region_text else f"tornadoes {month_text} {year} {geo}",
                 f"{region_text} \"severe weather\" {year} {geo}" if region_text else f"\"severe weather\" {year} {geo}",
+                f"{region_text} \"storm damage\" {month_text} {year} {geo}" if region_text else f"\"storm damage\" {month_text} {year} {geo}",
             ])
         elif "hail" in lower_name:
             queries.extend([
@@ -203,12 +208,14 @@ def build_queries(row):
                 f"{region_text} hail storm {year} {geo}" if region_text else f"hail storm {year} {geo}",
                 f"{region_text} hail {month_text} {year} {geo}" if region_text else f"hail {month_text} {year} {geo}",
                 f"{region_text} \"severe weather\" {year} {geo}" if region_text else f"\"severe weather\" {year} {geo}",
+                f"{region_text} \"storm damage\" {month_text} {year} {geo}" if region_text else f"\"storm damage\" {month_text} {year} {geo}", 
             ])
         elif "derecho" in lower_name:
             queries.extend([
                 f"\"{core_name}\" {year} {geo}",
                 f"{region_text} derecho {year} {geo}" if region_text else f"derecho {year} {geo}",
                 f"{region_text} \"severe weather\" {year} {geo}" if region_text else f"\"severe weather\" {year} {geo}",
+                f"{region_text} \"storm damage\" {month_text} {year} {geo}" if region_text else f"\"storm damage\" {month_text} {year} {geo}",
             ])
         else:
             queries.extend([
@@ -321,7 +328,7 @@ def within_window(article_dt, begin_dt, end_dt, source="metadata"):
     if source == "url" and begin_dt.year < 2010:
         return False
     event_duration = (end_dt - begin_dt).days
-    grace = max(14, min(42, event_duration * 3))  # 14–42 days, scaled by event length
+    grace = max(21, min(42, event_duration * 3))  # 21 days, scaled by event length
     latest_ok = end_dt + timedelta(days=grace)
     return begin_dt <= article_dt <= latest_ok
 
@@ -430,7 +437,8 @@ def is_geo_relevant(item, core_name):
     text = (item.get("title", "") + " " + item.get("snippet", "")).lower()
 
     for place, required_terms in GEO_KEYWORDS.items():
-        if place in lower_name:
+        pattern = r'\b' + re.escape(place) + r'\b'
+        if re.search(pattern, lower_name):
             if not any(t in text for t in required_terms):
                 return False
     return True
@@ -443,9 +451,12 @@ def is_noise_free(item):
 
 def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num=10):
     event_duration = (end_dt - begin_dt).days
-    grace = max(14, min(42, event_duration * 3))
+    grace = max(21, min(42, event_duration * 3))
     latest_ok = end_dt + timedelta(days=grace)
-    params = {"key": API_KEY, "cx": cx, "q": query, "num": min(num, 10), "sort": f"date:r:{begin_dt.strftime('%Y%m%d')}:{latest_ok.strftime('%Y%m%d')}"}
+    params = {"key": API_KEY, "cx": cx, "q": query, "num": min(num, 10)}
+
+    if begin_dt.year >= 2010:
+        params["sort"] = f"date:r:{begin_dt.strftime('%Y%m%d')}:{latest_ok.strftime('%Y%m%d')}"
 
     try:
         r = requests.get(GOOGLE_ENDPOINT, params=params, timeout=30)
@@ -548,11 +559,25 @@ def main():
     # ──────────────────────────────────────────────────────────────────
 
     if TEST_MODE:
-        df = pd.concat([
-            grp.sample(min(len(grp), 2), random_state=43)
-            for _, grp in df.groupby("Disaster", group_keys=False)
-        ]).iloc[::-1].reset_index(drop=True)
-        print(f"[TEST MODE] Sampled {len(df)} disasters (2 per type)")
+        # Pin known problem cases + a sample of well-covered ones for comparison
+        problem_names = [
+            "Hurricane Ivan",
+            "Spring Freeze",
+            "Southeast, Ohio Valley and Northeast Severe Weather",
+            "Northwest, Central, Eastern Winter Storm",  # only got 1 article last run
+            "Western Wildfires (Summer-Fall 2009)",      # only got 1 article last run
+        ]
+        problem_mask = df["Name"].apply(lambda n: any(p in n for p in problem_names))
+        problem_df = df[problem_mask]
+        
+        # Fill remaining slots with 1 random per type for baseline comparison
+        sample_df = pd.concat([
+            grp.sample(min(len(grp), 1), random_state=44)
+            for _, grp in df[~problem_mask].groupby("Disaster", group_keys=False)
+        ])
+        
+        df = pd.concat([problem_df, sample_df]).reset_index(drop=True)
+        print(f"[TEST MODE] {len(df)} disasters ({len(problem_df)} problem cases + {len(sample_df)} baseline)")
     else:
         print(f"[PRODUCTION] Running full {len(df)} disasters")
 
