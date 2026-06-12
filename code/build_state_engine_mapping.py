@@ -61,6 +61,14 @@ OUT_EVENTS = "data/events-US-2000-2024-Q4-states.csv"
 REGION_TO_STATES = [
     ("south florida", ["FL"]),
     ("fort lauderdale", ["FL"]),
+    # State names whose generic "North"/"South" qualifier would otherwise be
+    # caught by the standalone "south"/"southern" terms below (e.g. "South
+    # Carolina"/"South Dakota" contain the standalone word "south"). Listed
+    # early so they're matched and consumed before "south"/"southern" runs.
+    ("south dakota", ["SD"]),
+    ("north dakota", ["ND"]),
+    ("south carolina", ["SC"]),
+    ("north carolina", ["NC"]),
     ("east coast", ["ME", "NH", "VT", "MA", "RI", "CT", "NY", "NJ", "PA", "DE", "MD", "VA", "WV", "NC", "SC", "GA", "FL"]),
     ("great plains", ["ND", "SD", "NE", "KS", "OK", "TX", "MT", "WY", "CO"]),
     ("upper midwest", ["IA", "MI", "MN", "WI", "ND", "SD"]),
@@ -219,12 +227,32 @@ def get_states_for_event(name):
         return sorted(set(HURRICANE_STATES[name]))
 
     core = name.split("(", 1)[0].strip().lower()
+    # Normalize separators so multi-word region phrases (e.g. "north
+    # central") are still matched when written as "north/central" or
+    # "north-central".
+    core = re.sub(r"[/\-]", " ", core)
+
     states = set()
     matched_terms = []
     for term, term_states in REGION_TO_STATES:
-        if term in core:
+        # Word-boundary match, not plain substring: plain `term in core`
+        # caused compound region words to spuriously match shorter terms
+        # that are substrings of them (e.g. "midwest"/"southwest" contain
+        # "west"; "southeast"/"northeast" contain "south"/"east" etc.),
+        # producing massively over-broad unions for events with compound
+        # region names like "Midwest/Southeast Tornadoes". Word boundaries
+        # mean "west" only matches the standalone word "west", not the
+        # "west" inside "midwest".
+        m = re.search(r"\b" + re.escape(term) + r"\b", core)
+        if m:
             matched_terms.append(term)
             states.update(term_states)
+            # Blank out the matched text so its component words can't also
+            # match a broader term later (e.g. once "north central" matches,
+            # the standalone word "central" shouldn't separately trigger the
+            # much broader "central" region; once "south carolina" matches,
+            # "south" shouldn't separately trigger the broad "south" region).
+            core = core[: m.start()] + " " * (m.end() - m.start()) + core[m.end() :]
 
     if not states:
         return ["NATIONAL"]
