@@ -1,4 +1,5 @@
 import re
+import json
 import time
 import requests
 import pandas as pd
@@ -9,30 +10,18 @@ from urllib.parse import urlparse
 API_KEY = "AIzaSyAUb_oRdWC6bC4E1jubjtzY9h5vlww_HMs"
 
 
-CX_LIST = [
-    "b637da095190d4ab4",  # National
-    "b36e8bb9027274d14",  # 1
-    "510ce8c56df664249",  # 2
-    "063fa5ba05c9e4960",  # 3
-    "c24e943d956734fba",  # 4
-    "9222ab0f29d42468e",  # 5
-    "57468f00674154373",  # 6
-    "738d6107764bf4044",  # 7
-    "36b8dcfe1a83044fa",  # 8
-    "f13d56b2a148e46a9",  # 9
-    "8516f2fb95d884bc8",  # 10
-    "503cd3fc501d241b1",  # 11
-    "50bedac2eb0794a79",  # 12
-    "730b35036c161454e",  # 13
-    "27839fbbc50da4733",  # 14
-    "02b59d2338bc94979",  # 15
-    "94793f92aef4f4d16",  # 16
-    "0521a26b5a0b74105",  # 17
-    "930f9c358c52e4f78",  # 18
-]
+PSE_DOMAINS_PATH = "/Users/hariaksha/Documents/GitHub/climate-disaster/data/pse_domains.json"
+
+# engine name ("National", "1".."18") -> CX id, loaded from pse_domains.json
+with open(PSE_DOMAINS_PATH) as _f:
+    ENGINE_CX = {engine: info["cx"] for engine, info in json.load(_f).items()}
+
+# Full engine list (used as a fallback when a disaster's per-event engine
+# subset returns 0 candidates).
+ALL_CX_LIST = list(ENGINE_CX.values())
 
 
-INPUT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/data/events-US-2000-2024-Q4.csv"
+INPUT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/data/events-US-2000-2024-Q4-states.csv"
 OUTPUT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/climate_disaster_article_urls.csv"
 CHECKPOINT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/climate_disaster_checkpoint.csv"
 
@@ -142,6 +131,15 @@ def build_queries(row):
             found_regions.append(r)
 
     found_regions = list(dict.fromkeys(found_regions))
+
+    # Drop terms that are substrings of other matched terms (e.g. "south"
+    # and "east" are redundant once "southeast" has matched; this avoids
+    # garbled query text like "southeast south east").
+    found_regions = [
+        r for r in found_regions
+        if not any(r != r2 and r in r2 for r2 in found_regions)
+    ]
+
     region_text = " ".join(found_regions[:3]).strip()
     month_text = begin_dt.strftime("%B")
     geo = GEO_SUFFIX
@@ -372,7 +370,8 @@ def is_us_relevant(item):
 
 
 def is_disaster_relevant(item, disaster_type):
-    """Require disaster keyword in title, OR in both title+snippet with 2+ matches."""
+    """Require disaster keyword in title, OR 2+ DISTINCT keyword mentions
+    across title+snippet combined."""
     keywords = DISASTER_KEYWORDS.get(disaster_type, set())
     if not keywords:
         return True
@@ -384,9 +383,14 @@ def is_disaster_relevant(item, disaster_type):
     if any(kw in title for kw in keywords):
         return True
 
-    # Fallback: needs 2+ keyword hits across title+snippet combined
+    # Fallback: needs 2+ keyword hits across title+snippet combined.
+    # Match longest keywords first and scan non-overlapping so that e.g. a
+    # single mention of "flooding" doesn't also count as "flood" (which is
+    # a substring of "flooding") and inflate the hit count to 2.
     combined = title + " " + snippet
-    hits = sum(1 for kw in keywords if kw in combined)
+    sorted_kw = sorted(keywords, key=len, reverse=True)
+    pattern = re.compile("|".join(re.escape(k) for k in sorted_kw))
+    hits = len(pattern.findall(combined))
     return hits >= 2
 
 
@@ -443,17 +447,85 @@ GEO_KEYWORDS = {
     "appalachian":      {"appalachian", "west virginia", "kentucky", "virginia"}
 }
 
+# Broad multi-state regions that appear in event names. Unlike GEO_KEYWORDS
+# (specific single places, checked individually with AND logic), these are
+# checked with OR logic across the union of all matched regions' state
+# lists — an event can span multiple overlapping regions (e.g.
+# "Southwest/Southern Plains Drought"), and an article only needs to
+# reference ONE state/term from that combined area to be considered
+# geographically relevant.
+REGION_GEO_TERMS = {
+    "southwest":        {"arizona", "new mexico", "texas", "nevada", "utah", "colorado", "southwest"},
+    "southern plains":  {"texas", "oklahoma", "kansas", "new mexico", "southern plains"},
+    "great plains":     {"kansas", "nebraska", "oklahoma", "iowa", "north dakota", "south dakota", "montana", "colorado", "texas", "great plains"},
+    "southeast":        {"alabama", "florida", "georgia", "kentucky", "mississippi", "north carolina",
+                          "south carolina", "tennessee", "virginia", "west virginia", "southeast"},
+    "northeast":        {"maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut",
+                          "new york", "new jersey", "pennsylvania", "northeast"},
+    "pacific northwest":{"washington", "oregon", "idaho", "montana", "pacific northwest", "northwest"},
+    "northwest":        {"washington", "oregon", "idaho", "montana", "northwest"},
+    "midwest":          {"illinois", "indiana", "iowa", "kansas", "michigan", "minnesota", "missouri",
+                          "nebraska", "north dakota", "ohio", "south dakota", "wisconsin", "midwest"},
+    "mid-atlantic":     {"new york", "new jersey", "pennsylvania", "delaware", "maryland", "virginia",
+                          "west virginia", "district of columbia", "mid-atlantic"},
+    "rockies":          {"colorado", "wyoming", "montana", "idaho", "utah", "rockies", "rocky mountains"},
+    "gulf coast":       {"texas", "louisiana", "mississippi", "alabama", "florida", "gulf coast"},
+    "ohio valley":      {"ohio", "kentucky", "indiana", "west virginia", "illinois", "tennessee", "ohio valley"},
+}
+
+
 def is_geo_relevant(item, core_name):
     """If the disaster name contains a specific place, require it in title/snippet."""
     lower_name = core_name.lower()
     text = (item.get("title", "") + " " + item.get("snippet", "")).lower()
 
+    # Specific places (cities/states/sub-regions): each one that appears in
+    # the event name must individually be referenced in the article (AND).
     for place, required_terms in GEO_KEYWORDS.items():
         pattern = r'\b' + re.escape(place) + r'\b'
         if re.search(pattern, lower_name):
             if not any(t in text for t in required_terms):
                 return False
+
+    # Broad regions: if any matched, the article must mention at least one
+    # state/term from the UNION of all matched regions' state lists (OR).
+    region_union = set()
+    region_matched = False
+    for region, required_terms in REGION_GEO_TERMS.items():
+        pattern = r'\b' + re.escape(region) + r'\b'
+        if re.search(pattern, lower_name):
+            region_matched = True
+            region_union.update(required_terms)
+    if region_matched and not any(t in text for t in region_union):
+        return False
+
     return True
+
+
+# Pattern to extract a named tropical cyclone's storm name from an event's
+# core name, e.g. "Hurricane Nicholas" -> "Nicholas", "Tropical Storm
+# Allison" -> "Allison".
+STORM_NAME_PATTERN = re.compile(
+    r"(?:Hurricane|Tropical Storm|Tropical Depression|Typhoon|Tropical Cyclone)\s+([A-Za-z]+)",
+    re.IGNORECASE,
+)
+
+
+def is_storm_relevant(item, core_name, disaster_type):
+    """For named tropical cyclones, require the storm's own name to appear
+    in the article — prevents e.g. a "Tropical Storm Sam" article from
+    being matched to "Hurricane Nicholas" just because both are generic
+    hurricane coverage."""
+    if disaster_type != "Tropical Cyclone":
+        return True
+
+    m = STORM_NAME_PATTERN.search(core_name)
+    if not m:
+        return True
+
+    storm_name = m.group(1).lower()
+    text = (item.get("title", "") + " " + item.get("snippet", "")).lower()
+    return re.search(r'\b' + re.escape(storm_name) + r'\b', text) is not None
 
 def is_noise_free(item):
     """Reject articles whose title/snippet contain known off-topic phrases."""
@@ -494,6 +566,7 @@ def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num
                 and is_us_relevant(item)
                 and is_disaster_relevant(item, disaster_type)
                 and is_geo_relevant(item, core_name)
+                and is_storm_relevant(item, core_name, disaster_type)
                 and is_noise_free(item)):
             cleaned.append({
                 "url": link,
@@ -613,12 +686,25 @@ def main():
             queries, begin_dt, end_dt, core_name, region_text = build_queries(row)
             candidates = []
 
+            # Per-disaster engine subset (from the "Engines" column produced by
+            # build_state_engine_mapping.py). Falls back to all engines if the
+            # column is missing/empty.
+            engines_field = str(row.get("Engines", "")).strip()
+            if engines_field and engines_field.lower() != "nan":
+                engine_names = [e.strip() for e in engines_field.split(",") if e.strip()]
+                cx_list = [ENGINE_CX[e] for e in engine_names if e in ENGINE_CX]
+            else:
+                cx_list = []
+            if not cx_list:
+                cx_list = ALL_CX_LIST
+
+            print(f"  [Engines] Querying {len(cx_list)}/{len(ALL_CX_LIST)} engines")
 
             for query in queries:
                 if len(candidates) >= MAX_URLS_PER_DISASTER * PREFETCH_MULTIPLIER:
                     break                          # ← stop querying early
-                
-                for cx in CX_LIST:
+
+                for cx in cx_list:
                     call_count += 1
                     if len(candidates) >= MAX_URLS_PER_DISASTER * PREFETCH_MULTIPLIER: 
                         break                      # ← stop across engines too
@@ -653,9 +739,9 @@ def main():
                     else f"{disaster_type.lower()} {begin_dt.year} {GEO_SUFFIX}",
                     f"{disaster_type.lower()} damage {begin_dt.strftime('%B')} {begin_dt.year} {GEO_SUFFIX}",
                 ]
-                print(f"  [Fallback] 0 candidates — trying {len(fallback_queries)} broader queries…")
+                print(f"  [Fallback] 0 candidates — trying {len(fallback_queries)} broader queries across all {len(ALL_CX_LIST)} engines…")
                 for fq in fallback_queries:
-                    for cx in CX_LIST:
+                    for cx in ALL_CX_LIST:
                         results, err = search_one_engine(
                             query=fq, cx=cx, begin_dt=begin_dt, end_dt=end_dt,
                             disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE,
@@ -672,7 +758,14 @@ def main():
 
             out_row = row.to_dict()
             for i in range(1, MAX_URLS_PER_DISASTER + 1):
-                out_row[f"URL {i}"] = candidates[i - 1]["url"] if i <= len(candidates) else ""
+                if i <= len(candidates):
+                    out_row[f"URL {i}"] = candidates[i - 1]["url"]
+                    out_row[f"Title {i}"] = candidates[i - 1]["title"]
+                    out_row[f"Snippet {i}"] = candidates[i - 1]["snippet"]
+                else:
+                    out_row[f"URL {i}"] = ""
+                    out_row[f"Title {i}"] = ""
+                    out_row[f"Snippet {i}"] = ""
 
 
             all_output_rows.append(out_row)
