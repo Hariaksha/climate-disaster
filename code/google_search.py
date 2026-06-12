@@ -333,12 +333,16 @@ def extract_date_from_url(url):
     return None
 
 
-def within_window(article_dt, begin_dt, end_dt, source="metadata"):
+def within_window(article_dt, begin_dt, end_dt, source="metadata", max_latest_dt=None):
     if article_dt is None:
         return False
     event_duration = (end_dt - begin_dt).days
     grace = max(21, min(42, event_duration * 3))  # 21 days, scaled by event length
     latest_ok = end_dt + timedelta(days=grace)
+    # Don't let the grace period bleed into a later, separate event's coverage
+    # (e.g. two distinct winter storms in the same month).
+    if max_latest_dt is not None and max_latest_dt < latest_ok:
+        latest_ok = max_latest_dt
     return begin_dt <= article_dt <= latest_ok
 
 
@@ -572,10 +576,23 @@ def is_noise_free(item):
     return not any(phrase in text for phrase in NOISE_PHRASES)
 
 
-def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num=10, n_states=None):
+def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num=10, n_states=None, next_event_begin_dt=None):
     event_duration = (end_dt - begin_dt).days
-    grace = max(21, min(42, event_duration * 3))
+    if disaster_type in ("Winter Storm", "Severe Storm"):
+        # These are short, fast-moving events, and successive storms/outbreaks
+        # often hit the same region within 2-3 weeks. A full 21-42 day grace
+        # period risks pulling in coverage of the *next* storm rather than
+        # follow-up coverage of this one, so use a shorter cap.
+        grace = max(10, min(21, event_duration * 3))
+    else:
+        grace = max(21, min(42, event_duration * 3))
     latest_ok = end_dt + timedelta(days=grace)
+    # Cap the grace period so it doesn't extend into a later, separate event
+    # of the same disaster type (avoids pulling in that event's coverage).
+    if next_event_begin_dt is not None:
+        cap = next_event_begin_dt - timedelta(days=1)
+        if cap < latest_ok:
+            latest_ok = max(cap, end_dt)  # never shrink below the event's own end date
     params = {"key": API_KEY, "cx": cx, "q": query, "num": min(num, 10)}
 
     params["sort"] = f"date:r:{begin_dt.strftime('%Y%m%d')}:{latest_ok.strftime('%Y%m%d')}"
@@ -600,7 +617,7 @@ def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num
         pub_dt, date_source = extract_date_from_result(item)   # ← unpack
 
         if (not is_blocked_url(link)
-                and within_window(pub_dt, begin_dt, end_dt, source=date_source)  # ← pass source
+                and within_window(pub_dt, begin_dt, end_dt, source=date_source, max_latest_dt=latest_ok)  # ← pass source
                 and is_us_relevant(item)
                 and is_disaster_relevant(item, disaster_type)
                 and is_geo_relevant(item, core_name, n_states=n_states)
@@ -676,7 +693,22 @@ def main():
     for c in required_cols:
         if c not in df.columns:
             raise ValueError(f"Missing required column: {c}")
-        
+
+    # For each event, find the begin date of the next event of the *same*
+    # disaster type (computed against the full dataset, before any TEST_MODE
+    # sampling, so the cap is correct even when only a subset is processed).
+    # Used to keep a short event's post-event "grace period" from bleeding
+    # into a later, separate event's coverage (e.g. two distinct winter
+    # storms in the same month).
+    next_event_begin_by_name = {}
+    for dtype, grp in df.groupby("Disaster"):
+        begins = sorted(parse_yyyymmdd(b) for b in grp["Begin Date"])
+        for _, r in grp.iterrows():
+            end_dt = parse_yyyymmdd(r["End Date"])
+            later = [b for b in begins if b > end_dt]
+            next_event_begin_by_name[str(r["Name"]).strip()] = min(later) if later else None
+
+
     # ── TEST RUN: sample 15 random disasters ──────────────────────────
     # df = df.sample(n=10, random_state=12).reset_index(drop=True)
     # ──────────────────────────────────────────────────────────────────
@@ -698,13 +730,20 @@ def main():
         print(f"[TEST MODE - PRE-2010 FOCUS] {len(df)} pre-2010 disasters "
               f"({len(pre2010_df)} pre-2010 events available)")
     elif TEST_MODE:
-        # Pin known problem cases + a sample of well-covered ones for comparison
+        # Pin known problem cases + a sample of well-covered ones for comparison.
+        # This batch targets the events touched by this session's fixes:
+        # the Spring Freeze 2007 reclassification, the 5 rows that gained
+        # missing states (OK/KS/MI/AK/MT/ND/SD), and the Feb 2023 winter
+        # storm grace-period fix.
         problem_names = [
-            "Hurricane Ivan",
-            "Spring Freeze",
-            "Southeast, Ohio Valley and Northeast Severe Weather",
-            "Northwest, Central, Eastern Winter Storm",  # only got 1 article last run
-            "Western Wildfires (Summer-Fall 2009)",      # only got 1 article last run
+            "Spring Freeze (April 2007)",
+            "Oklahoma, Kansas, and Texas Tornadoes and Severe Weather (May 2010)",
+            "Michigan and Northeast Flooding (August 2014)",
+            "Texas and Oklahoma Flooding and Severe Weather (May 2015)",
+            "North Dakota, South Dakota and Montana Drought (Spring-Fall 2017)",
+            "California and Alaska Wildfires (Summer-Fall 2019)",
+            "Texas and Oklahoma Severe Weather (April 2021)",
+            "Northeastern Winter Storm/Cold Wave (February 2023)",
         ]
         problem_mask = df["Name"].apply(lambda n: any(p in n for p in problem_names))
         problem_df = df[problem_mask]
@@ -739,6 +778,8 @@ def main():
 
             queries, begin_dt, end_dt, core_name, region_text = build_queries(row)
             candidates = []
+
+            next_event_begin_dt = next_event_begin_by_name.get(name)
 
             # Number of states this event actually spans (None for NATIONAL),
             # used by is_geo_relevant to decide whether a matched region's
@@ -780,11 +821,12 @@ def main():
                         core_name=core_name,          # ← add this
                         num=RESULTS_PER_ENGINE,
                         n_states=n_states,
+                        next_event_begin_dt=next_event_begin_dt,
                     )
                     if err == "RATE_LIMITED":
                         print(f"  [429] Rate limited — sleeping 60s before retrying…")
                         time.sleep(60)
-                        results, err = search_one_engine(query=query, cx=cx, begin_dt=begin_dt, end_dt=end_dt, disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE, n_states=n_states)
+                        results, err = search_one_engine(query=query, cx=cx, begin_dt=begin_dt, end_dt=end_dt, disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE, n_states=n_states, next_event_begin_dt=next_event_begin_dt)
                     if err:
                         print(f"  [API error] cx={cx[:8]}… query='{query[:40]}': {err}")
                     elif results:
@@ -810,6 +852,7 @@ def main():
                             query=fq, cx=cx, begin_dt=begin_dt, end_dt=end_dt,
                             disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE,
                             n_states=n_states,
+                            next_event_begin_dt=next_event_begin_dt,
                         )
                         if results:
                             candidates.extend(results)
