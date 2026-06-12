@@ -166,7 +166,18 @@ HURRICANE_STATES = {
     "Louisiana Flooding (August 2016)": ["LA"],
     "Arkansas River Flooding (June 2019)": ["AR"],
     "Minnesota Hail Storms (August 2023)": ["MN"],
+    # "Oklahoma"/"Kansas"/"Michigan"/"Alaska" have no REGION_TO_STATES terms,
+    # so these multi-state event names would otherwise resolve to only the
+    # one state ("texas"/"california") that does have a term.
+    "Oklahoma, Kansas, and Texas Tornadoes and Severe Weather (May 2010)": ["KS", "OK", "TX"],
+    "Michigan and Northeast Flooding (August 2014)": ["CT", "DE", "FL", "GA", "MA", "MD", "ME", "MI", "NC", "NH", "NJ", "NY", "PA", "RI", "SC", "VA", "VT", "WV"],
+    "Texas and Oklahoma Flooding and Severe Weather (May 2015)": ["OK", "TX"],
+    "California and Alaska Wildfires (Summer-Fall 2019)": ["AK", "CA"],
+    "Texas and Oklahoma Severe Weather (April 2021)": ["OK", "TX"],
     "Center Severe Weather (May 2014)": ["IL", "IN", "IA", "KS", "MI", "MN", "MO", "NE", "ND", "OH", "SD", "WI", "OK", "TX"],
+    # "South Dakota" substring otherwise matches the "south"/"southern"
+    # region term and pulls in an unrelated southern-states list
+    "North Dakota, South Dakota and Montana Drought (Spring-Fall 2017)": ["MT", "ND", "SD"],
     # genuinely no usable geographic signal -> National
     "Severe Storms and Tornadoes (April 2002)": ["NATIONAL"],
     "Severe Storms/Hail (April 2003)": ["NATIONAL"],
@@ -174,7 +185,7 @@ HURRICANE_STATES = {
     "Severe Storms, Hail, Tornadoes (May 2004)": ["NATIONAL"],
     "Severe Storms and Tornadoes (March 2006)": ["NATIONAL"],
     "Numerous Wildfires (2006)": ["NATIONAL"],
-    "Spring Freeze (April 2007)": ["NATIONAL"],
+    "Spring Freeze (April 2007)": ["AL", "AR", "GA", "IA", "IL", "IN", "KS", "KY", "MO", "MS", "NC", "NE", "OH", "OK", "SC", "TN", "VA", "WV"],
     "Arizona Severe Weather (October 2010)": ["AZ"],
     "Groundhog Day Blizzard (February 2011)": ["NATIONAL"],
 }
