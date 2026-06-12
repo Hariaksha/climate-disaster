@@ -1,0 +1,296 @@
+{
+  "state_to_engines": {
+    "AK": [
+      "1"
+    ],
+    "AL": [
+      "1"
+    ],
+    "AR": [
+      "2"
+    ],
+    "AS": [
+      "1"
+    ],
+    "AZ": [
+      "1",
+      "2"
+    ],
+    "CA": [
+      "2",
+      "3",
+      "National"
+    ],
+    "CO": [
+      "3"
+    ],
+    "CT": [
+      "3"
+    ],
+    "DC": [
+      "3",
+      "4"
+    ],
+    "DE": [
+      "7"
+    ],
+    "FL": [
+      "4",
+      "National"
+    ],
+    "GA": [
+      "4"
+    ],
+    "HI": [
+      "4"
+    ],
+    "IA": [
+      "6"
+    ],
+    "ID": [
+      "4",
+      "5"
+    ],
+    "IL": [
+      "5",
+      "National"
+    ],
+    "IN": [
+      "5",
+      "6"
+    ],
+    "KS": [
+      "6",
+      "7"
+    ],
+    "KY": [
+      "7"
+    ],
+    "LA": [
+      "7"
+    ],
+    "MA": [
+      "3",
+      "7",
+      "8"
+    ],
+    "MD": [
+      "13",
+      "7"
+    ],
+    "ME": [
+      "7"
+    ],
+    "MI": [
+      "8"
+    ],
+    "MN": [
+      "8",
+      "9"
+    ],
+    "MO": [
+      "9"
+    ],
+    "MS": [
+      "9"
+    ],
+    "MT": [
+      "10",
+      "9"
+    ],
+    "NC": [
+      "12",
+      "13"
+    ],
+    "ND": [
+      "13"
+    ],
+    "NE": [
+      "10"
+    ],
+    "NH": [
+      "10"
+    ],
+    "NJ": [
+      "10",
+      "11",
+      "3"
+    ],
+    "NM": [
+      "11"
+    ],
+    "NV": [
+      "10"
+    ],
+    "NY": [
+      "11",
+      "12",
+      "3"
+    ],
+    "OH": [
+      "13",
+      "14",
+      "5",
+      "7"
+    ],
+    "OK": [
+      "14"
+    ],
+    "OR": [
+      "14"
+    ],
+    "PA": [
+      "14",
+      "15"
+    ],
+    "PR": [
+      "15"
+    ],
+    "RI": [
+      "15"
+    ],
+    "SC": [
+      "14",
+      "15"
+    ],
+    "SD": [
+      "15"
+    ],
+    "TN": [
+      "15",
+      "16"
+    ],
+    "TX": [
+      "16",
+      "17",
+      "National"
+    ],
+    "U.S. Virgin Islands": [
+      "17"
+    ],
+    "UT": [
+      "17",
+      "5"
+    ],
+    "VA": [
+      "17",
+      "18"
+    ],
+    "VT": [
+      "17"
+    ],
+    "WA": [
+      "10",
+      "18",
+      "4",
+      "National"
+    ],
+    "WI": [
+      "18"
+    ],
+    "WV": [
+      "13",
+      "18"
+    ],
+    "WY": [
+      "18"
+    ]
+  },
+  "state_domain_counts": {
+    "WA": 20,
+    "CA": 46,
+    "TX": 52,
+    "IL": 38,
+    "FL": 22,
+    "AZ": 11,
+    "AS": 1,
+    "AK": 9,
+    "AL": 35,
+    "AR": 13,
+    "DC": 3,
+    "CT": 11,
+    "MA": 21,
+    "NY": 41,
+    "NJ": 11,
+    "CO": 17,
+    "ID": 9,
+    "HI": 3,
+    "GA": 17,
+    "IN": 22,
+    "OH": 41,
+    "UT": 8,
+    "KS": 15,
+    "IA": 20,
+    "MD": 9,
+    "DE": 1,
+    "ME": 3,
+    "LA": 7,
+    "KY": 18,
+    "MN": 19,
+    "MI": 28,
+    "MT": 8,
+    "MO": 29,
+    "MS": 14,
+    "NH": 5,
+    "NV": 9,
+    "NE": 4,
+    "NM": 5,
+    "NC": 46,
+    "WV": 11,
+    "ND": 11,
+    "SC": 15,
+    "PA": 37,
+    "OR": 12,
+    "OK": 20,
+    "TN": 19,
+    "SD": 4,
+    "RI": 4,
+    "PR": 3,
+    "VA": 25,
+    "VT": 4,
+    "U.S. Virgin Islands": 1,
+    "WY": 7,
+    "WI": 14
+  },
+  "national_engine": "National",
+  "excluded_broad_coverage_domains": [
+    [
+      "apnews.com",
+      50
+    ]
+  ],
+  "unmatched_pse_domains": [
+    "bostonglobe.com",
+    "wsj.com",
+    "washingtonpost.com",
+    "usatoday.com",
+    "edition.cnn.com",
+    "cnn.com",
+    "npr.org",
+    "wipo.int",
+    "votebeat.org",
+    "victorhanson.com",
+    "enewspaper.usatoday.com",
+    "ms.now",
+    "splendidtable.org",
+    "tribunecontentagency.com",
+    "revealnews.org",
+    "newlywedsonabudget.com",
+    "newlinesmag.com",
+    "lfexaminer.com",
+    "interpersonaledge.com",
+    "infoworld.com",
+    "imarcgroup.com",
+    "idgconnect.com",
+    "foxnews.com",
+    "everybodylovesyourmoney.com",
+    "discoursemagazine.com",
+    "thedailybeast.com",
+    "computerworld.com",
+    "cleverdude.com",
+    "bloggingawaydebt.com",
+    "anavecianasuarez.com",
+    "aim.org",
+    "nytimes.com"
+  ]
+}
