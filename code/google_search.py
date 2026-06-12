@@ -26,7 +26,7 @@ OUTPUT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/climate_disast
 CHECKPOINT_FILE = "/Users/hariaksha/Documents/GitHub/climate-disaster/climate_disaster_checkpoint.csv"
 
 PREFETCH_MULTIPLIER = 2   # ADD at top with other constants
-MAX_URLS_PER_DISASTER = 20 # for test. change to use 50 for actual run
+MAX_URLS_PER_DISASTER = 30 # for production run
 RESULTS_PER_ENGINE = 10
 MAX_URLS_PER_ENGINE = 5 # used to be 3
 SLEEP_BETWEEN_CALLS = 0.5
@@ -36,6 +36,7 @@ GOOGLE_ENDPOINT = "https://customsearch.googleapis.com/customsearch/v1"
 GEO_SUFFIX = "United States"
 
 TEST_MODE = True   # ← set to False for full production run
+PRE2010_FOCUS_TEST = False  # ← set to False to use the normal TEST_MODE sample
 
 # URL path segments that indicate non-article pages
 BLOCKED_URL_PATTERNS = [
@@ -93,8 +94,8 @@ DISASTER_KEYWORDS = {
 
 # Keywords that strongly indicate an off-topic article regardless of other matches
 NOISE_PHRASES = [
-    "cfp title", "college football", "nfl", "nba", "mlb", "nhl", "trump lobs", "trump insults", "election results", "election day", "polling place", "voter turnout", 
-    "campaign trail", "bootcamp", "china flood", "china flooding", "africa drought", "kenya", "europe heat", "european heat", "mexico heat", "pakistan fires", 
+    "cfp title", "college football", "nfl", "nba", "mlb", "nhl", "trump lobs", "trump insults", "election results", "election day", "polling place", "voter turnout",
+    "campaign trail", "bootcamp", "china flood", "china flooding", "africa drought", "western africa", "eastern africa", "north africa", "kenya", "europe heat", "european heat", "mexico heat", "pakistan fires",
     "pakistan military", "obama mccain", "debate transcript", "hedge fund", "mcclatchy", "newspaper chain", "mysterious object", "oil prices", "falling oil", "internet access", "gas prices",
     "bermuda", "canada water", "sex abuse lawsuit", "child abuse lawsuit"
 ]
@@ -335,8 +336,6 @@ def extract_date_from_url(url):
 def within_window(article_dt, begin_dt, end_dt, source="metadata"):
     if article_dt is None:
         return False
-    if source == "url" and begin_dt.year < 2010:
-        return False
     event_duration = (end_dt - begin_dt).days
     grace = max(21, min(42, event_duration * 3))  # 21 days, scaled by event length
     latest_ok = end_dt + timedelta(days=grace)
@@ -441,10 +440,6 @@ GEO_KEYWORDS = {
     "new york":         {"new york"},
     "new jersey":       {"new jersey"},
     "michigan":         {"michigan"},
-    "ohio valley":      {"ohio", "kentucky", "indiana", "west virginia"},
-    "pacific northwest":{"oregon", "washington", "pacific northwest"},
-    "great plains":     {"kansas", "nebraska", "oklahoma", "iowa"},
-    "appalachian":      {"appalachian", "west virginia", "kentucky", "virginia"}
 }
 
 # Broad multi-state regions that appear in event names. Unlike GEO_KEYWORDS
@@ -471,24 +466,40 @@ REGION_GEO_TERMS = {
     "rockies":          {"colorado", "wyoming", "montana", "idaho", "utah", "rockies", "rocky mountains"},
     "gulf coast":       {"texas", "louisiana", "mississippi", "alabama", "florida", "gulf coast"},
     "ohio valley":      {"ohio", "kentucky", "indiana", "west virginia", "illinois", "tennessee", "ohio valley"},
+    "appalachian":      {"appalachian", "west virginia", "kentucky", "virginia"},
+
+    # "...ern" adjective forms (e.g. "Northeastern Winter Storm"). \b-bounded
+    # regex matching on "northeast" etc. does NOT match "northeastern" (no
+    # word boundary between "northeast" and "ern"), so without these explicit
+    # entries such event names get NO region match at all and skip the geo
+    # check entirely — letting in articles about unrelated regions (e.g. an
+    # Oregon/Washington article slipping into a "Northeastern Winter Storm"
+    # result set).
+    "northeastern":     {"maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut",
+                          "new york", "new jersey", "pennsylvania", "northeast", "northeastern"},
+    "southeastern":      {"alabama", "florida", "georgia", "kentucky", "mississippi", "north carolina",
+                          "south carolina", "tennessee", "virginia", "west virginia", "southeast", "southeastern"},
+    "northwestern":     {"washington", "oregon", "idaho", "montana", "northwest", "northwestern"},
+    "southwestern":     {"arizona", "new mexico", "texas", "nevada", "utah", "colorado", "southwest", "southwestern"},
 }
 
 
-def is_geo_relevant(item, core_name):
-    """If the disaster name contains a specific place, require it in title/snippet."""
+def is_geo_relevant(item, core_name, n_states=None):
+    """If the disaster name contains a specific place, require it in title/snippet.
+
+    `n_states` is the number of states the event actually spans (from the
+    "States" column), or None for NATIONAL events.
+    """
     lower_name = core_name.lower()
     text = (item.get("title", "") + " " + item.get("snippet", "")).lower()
 
-    # Specific places (cities/states/sub-regions): each one that appears in
-    # the event name must individually be referenced in the article (AND).
-    for place, required_terms in GEO_KEYWORDS.items():
-        pattern = r'\b' + re.escape(place) + r'\b'
-        if re.search(pattern, lower_name):
-            if not any(t in text for t in required_terms):
-                return False
-
     # Broad regions: if any matched, the article must mention at least one
     # state/term from the UNION of all matched regions' state lists (OR).
+    # Checked first because when an event name combines a broad region with
+    # a more specific place fragment (e.g. "Southeast, Ohio Valley and
+    # Northeast Severe Weather" — "ohio" alone is a GEO_KEYWORDS entry too),
+    # the broad-region check with its ratio safeguard is the more reliable
+    # signal and should take precedence over the narrower GEO_KEYWORDS match.
     region_union = set()
     region_matched = False
     for region, required_terms in REGION_GEO_TERMS.items():
@@ -496,8 +507,36 @@ def is_geo_relevant(item, core_name):
         if re.search(pattern, lower_name):
             region_matched = True
             region_union.update(required_terms)
-    if region_matched and not any(t in text for t in region_union):
-        return False
+
+    if region_matched:
+        # If the matched region(s) cover only a small slice of the event's
+        # actual footprint, the union is too narrow to be a reliable
+        # geographic filter (e.g. "Northwest, Central, Eastern Winter Storm"
+        # spans 44 states, but "northwest" alone only maps to ~5 — most
+        # legitimate coverage of the storm wouldn't mention those). Skip the
+        # check entirely in that case rather than risk rejecting valid
+        # articles.
+        if n_states and n_states > 0 and (len(region_union) / n_states) < 0.3:
+            return True
+        return any(t in text for t in region_union)
+
+    # Specific places (cities/states): only checked if no broad region
+    # matched above. The article must mention at least one term from the
+    # UNION of all matched places' required terms (OR). When an event name
+    # lists multiple states/places (e.g. "North Dakota, South Dakota and
+    # Montana Drought"), articles typically cover only one of them, so
+    # OR-across-matches is correct — AND would require every listed place to
+    # appear in a single article, which almost never happens.
+    geo_union = set()
+    geo_matched = False
+    for place, required_terms in GEO_KEYWORDS.items():
+        pattern = r'\b' + re.escape(place) + r'\b'
+        if re.search(pattern, lower_name):
+            geo_matched = True
+            geo_union.update(required_terms)
+
+    if geo_matched:
+        return any(t in text for t in geo_union)
 
     return True
 
@@ -533,14 +572,13 @@ def is_noise_free(item):
     return not any(phrase in text for phrase in NOISE_PHRASES)
 
 
-def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num=10):
+def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num=10, n_states=None):
     event_duration = (end_dt - begin_dt).days
     grace = max(21, min(42, event_duration * 3))
     latest_ok = end_dt + timedelta(days=grace)
     params = {"key": API_KEY, "cx": cx, "q": query, "num": min(num, 10)}
 
-    if begin_dt.year >= 2010:
-        params["sort"] = f"date:r:{begin_dt.strftime('%Y%m%d')}:{latest_ok.strftime('%Y%m%d')}"
+    params["sort"] = f"date:r:{begin_dt.strftime('%Y%m%d')}:{latest_ok.strftime('%Y%m%d')}"
 
     try:
         r = requests.get(GOOGLE_ENDPOINT, params=params, timeout=30)
@@ -565,7 +603,7 @@ def search_one_engine(query, cx, begin_dt, end_dt, disaster_type, core_name, num
                 and within_window(pub_dt, begin_dt, end_dt, source=date_source)  # ← pass source
                 and is_us_relevant(item)
                 and is_disaster_relevant(item, disaster_type)
-                and is_geo_relevant(item, core_name)
+                and is_geo_relevant(item, core_name, n_states=n_states)
                 and is_storm_relevant(item, core_name, disaster_type)
                 and is_noise_free(item)):
             cleaned.append({
@@ -643,7 +681,23 @@ def main():
     # df = df.sample(n=10, random_state=12).reset_index(drop=True)
     # ──────────────────────────────────────────────────────────────────
 
-    if TEST_MODE:
+    if TEST_MODE and PRE2010_FOCUS_TEST:
+        # Focused test on pre-2010 events to check the impact of the
+        # within_window / sort=date: fixes for older disasters (which often
+        # lack structured published-time metadata and rely on URL-derived dates).
+        years = df["Begin Date"].astype(str).str[:4].astype(int)
+        pre2010_df = df[years < 2010]
+
+        # 2 random pre-2010 events per disaster type (bounded by availability)
+        sample_df = pd.concat([
+            grp.sample(min(len(grp), 2), random_state=44)
+            for _, grp in pre2010_df.groupby("Disaster", group_keys=False)
+        ])
+
+        df = sample_df.reset_index(drop=True)
+        print(f"[TEST MODE - PRE-2010 FOCUS] {len(df)} pre-2010 disasters "
+              f"({len(pre2010_df)} pre-2010 events available)")
+    elif TEST_MODE:
         # Pin known problem cases + a sample of well-covered ones for comparison
         problem_names = [
             "Hurricane Ivan",
@@ -654,13 +708,13 @@ def main():
         ]
         problem_mask = df["Name"].apply(lambda n: any(p in n for p in problem_names))
         problem_df = df[problem_mask]
-        
-        # Fill remaining slots with 1 random per type for baseline comparison
+
+        # Fill remaining slots with 2 random per type for baseline comparison
         sample_df = pd.concat([
-            grp.sample(min(len(grp), 1), random_state=44)
+            grp.sample(min(len(grp), 2), random_state=44)
             for _, grp in df[~problem_mask].groupby("Disaster", group_keys=False)
         ])
-        
+
         df = pd.concat([problem_df, sample_df]).reset_index(drop=True)
         print(f"[TEST MODE] {len(df)} disasters ({len(problem_df)} problem cases + {len(sample_df)} baseline)")
     else:
@@ -685,6 +739,15 @@ def main():
 
             queries, begin_dt, end_dt, core_name, region_text = build_queries(row)
             candidates = []
+
+            # Number of states this event actually spans (None for NATIONAL),
+            # used by is_geo_relevant to decide whether a matched region's
+            # required-terms union is representative enough to enforce.
+            states_field = str(row.get("States", "")).strip().upper()
+            if not states_field or states_field == "NATIONAL" or states_field == "NAN":
+                n_states = None
+            else:
+                n_states = len([s for s in states_field.split(",") if s.strip()])
 
             # Per-disaster engine subset (from the "Engines" column produced by
             # build_state_engine_mapping.py). Falls back to all engines if the
@@ -716,11 +779,12 @@ def main():
                         disaster_type=disaster_type,
                         core_name=core_name,          # ← add this
                         num=RESULTS_PER_ENGINE,
+                        n_states=n_states,
                     )
                     if err == "RATE_LIMITED":
                         print(f"  [429] Rate limited — sleeping 60s before retrying…")
                         time.sleep(60)
-                        results, err = search_one_engine(query=query, cx=cx, begin_dt=begin_dt, end_dt=end_dt, disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE)
+                        results, err = search_one_engine(query=query, cx=cx, begin_dt=begin_dt, end_dt=end_dt, disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE, n_states=n_states)
                     if err:
                         print(f"  [API error] cx={cx[:8]}… query='{query[:40]}': {err}")
                     elif results:
@@ -745,6 +809,7 @@ def main():
                         results, err = search_one_engine(
                             query=fq, cx=cx, begin_dt=begin_dt, end_dt=end_dt,
                             disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE,
+                            n_states=n_states,
                         )
                         if results:
                             candidates.extend(results)
