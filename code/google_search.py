@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import time
@@ -5,6 +6,13 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
+
+
+class DailyQuotaExhausted(Exception):
+    """Raised when the Google Custom Search API keeps returning 429s even
+    after a retry-with-sleep, which indicates the daily query quota (not a
+    short-lived per-second rate limit) has been used up for the day."""
+    pass
 
 
 API_KEY = "AIzaSyAUb_oRdWC6bC4E1jubjtzY9h5vlww_HMs"
@@ -35,7 +43,7 @@ SLEEP_LONG = 10.0           # seconds for the longer pause
 GOOGLE_ENDPOINT = "https://customsearch.googleapis.com/customsearch/v1"
 GEO_SUFFIX = "United States"
 
-TEST_MODE = True   # ← set to False for full production run
+TEST_MODE = False   # ← set to False for full production run
 PRE2010_FOCUS_TEST = False  # ← set to False to use the normal TEST_MODE sample
 
 # URL path segments that indicate non-article pages
@@ -406,6 +414,7 @@ GEO_KEYWORDS = {
 
     # States mentioned by name in event titles
     "california":       {"california"},
+    "alaska":           {"alaska"},
     "texas":            {"texas"},
     "florida":          {"florida", "south florida"},
     "louisiana":        {"louisiana"},
@@ -759,7 +768,26 @@ def main():
     else:
         print(f"[PRODUCTION] Running full {len(df)} disasters")
 
-    all_output_rows = []
+    # ── RESUME FROM CHECKPOINT ──────────────────────────────────────────
+    # If a previous run was cut short (daily quota exhausted, Ctrl+C, etc.)
+    # and left a checkpoint file behind, skip any disasters that were
+    # already fully processed and seed the output with their saved rows,
+    # so the final CSV ends up covering the whole dataset across runs.
+    checkpoint_rows = []
+    full_total = len(df)
+    if os.path.exists(CHECKPOINT_FILE):
+        checkpoint_df = pd.read_csv(CHECKPOINT_FILE)
+        checkpoint_rows = checkpoint_df.to_dict("records")
+        already_done = set(checkpoint_df["Name"].astype(str).str.strip())
+        before = len(df)
+        df = df[~df["Name"].astype(str).str.strip().isin(already_done)].reset_index(drop=True)
+        print(f"[Resume] Found checkpoint with {len(already_done)} disasters already done — "
+              f"skipping {before - len(df)}, {len(df)} remaining")
+        if df.empty:
+            print("[Resume] Nothing left to do — all disasters are already in the checkpoint. "
+                  "Delete the checkpoint file to start over.")
+
+    all_output_rows = list(checkpoint_rows)
     total = len(df)
     total_articles_saved = 0
     disasters_with_any_articles = 0
@@ -827,6 +855,12 @@ def main():
                         print(f"  [429] Rate limited — sleeping 60s before retrying…")
                         time.sleep(60)
                         results, err = search_one_engine(query=query, cx=cx, begin_dt=begin_dt, end_dt=end_dt, disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE, n_states=n_states, next_event_begin_dt=next_event_begin_dt)
+                        if err == "RATE_LIMITED":
+                            # Still rate-limited after a 60s sleep — this is no
+                            # longer a short-lived per-second limit, it's the
+                            # daily quota. Stop the run; the checkpoint already
+                            # has everything completed so far.
+                            raise DailyQuotaExhausted()
                     if err:
                         print(f"  [API error] cx={cx[:8]}… query='{query[:40]}': {err}")
                     elif results:
@@ -854,6 +888,17 @@ def main():
                             n_states=n_states,
                             next_event_begin_dt=next_event_begin_dt,
                         )
+                        if err == "RATE_LIMITED":
+                            print(f"  [429] Rate limited — sleeping 60s before retrying…")
+                            time.sleep(60)
+                            results, err = search_one_engine(
+                                query=fq, cx=cx, begin_dt=begin_dt, end_dt=end_dt,
+                                disaster_type=disaster_type, core_name=core_name, num=RESULTS_PER_ENGINE,
+                                n_states=n_states,
+                                next_event_begin_dt=next_event_begin_dt,
+                            )
+                            if err == "RATE_LIMITED":
+                                raise DailyQuotaExhausted()
                         if results:
                             candidates.extend(results)
                         call_count += 1
@@ -897,9 +942,22 @@ def main():
         print("\n\n[!] Interrupted by user (Ctrl+C). Saving partial results…")
         interrupted = True
 
+    except DailyQuotaExhausted:
+        print("\n\n[!] Daily API quota appears exhausted (still rate-limited after a "
+              "60s retry). Stopping here — re-run tomorrow to pick up the remaining "
+              "disasters from the checkpoint.")
+        interrupted = True
+
     finally:
+        # Make sure the checkpoint reflects everything completed this run,
+        # even if we stopped between scheduled (every-25) checkpoint saves —
+        # otherwise a resumed run could redo a few already-finished disasters.
+        if all_output_rows:
+            pd.DataFrame(all_output_rows).to_csv(CHECKPOINT_FILE, index=False)
+            print(f"[Checkpoint] Saved {len(all_output_rows)} rows to {CHECKPOINT_FILE}")
+
         save_results(
-            all_output_rows, total,
+            all_output_rows, full_total,
             total_articles_saved,
             disasters_with_any_articles,
             disasters_with_zero_articles,
