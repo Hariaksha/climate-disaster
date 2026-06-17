@@ -28,7 +28,7 @@ in the workbook for transparency/audit).
 |---|---|---|
 | **Relevant** | Article substantively discusses *this specific* NOAA-listed event — correct disaster type, correct geography (state/region named in the `States` column), and a date consistent with the `Begin Date`/`End Date` window (including reasonable lead-up or retrospective coverage). | A news story on the storm's impacts, recovery, costs, forecasts, or causal framing. |
 | **Borderline** | Plausibly about this event but ambiguous: a wire brief with too little detail to confirm event match, a "wildfire season" or "hurricane season" roundup that may or may not cover this specific event, or a retrospective piece (1+ years later) that references the event only in passing. | "Looking back at the 2018 hurricane season..." with one sentence on the target storm. |
-| **Trash** | Off-topic, wrong event/year/disaster type, duplicate of another row, paywall/login/cookie-notice page, aggregator or archive listing page with no article content, or a dead link. | A search result that is actually about a *different* hurricane, or a homepage/section-front URL. |
+| **Trash** | Off-topic, wrong event/year/disaster type, duplicate of another row, paywall/login/cookie-notice page, aggregator or archive listing page with no article content, dead link, or photo gallery (caption-only text with no article body — captions cannot contain sustained causal framing and thus cannot produce a meaningful attribution code). | A search result that is actually about a *different* hurricane; a homepage/section-front URL; a slideshow with only photo captions. |
 
 **Note:** `Borderline` exists so that ambiguous cases are not forced into a binary
 decision during the first pass; they can be revisited during calibration (Step 4
