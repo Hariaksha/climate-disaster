@@ -33,7 +33,7 @@
 \author[3]{Angela Doku}
 \author[4]{John List}
 
-\affil[1]{TODO: Affiliation}
+\affil[1]{University of Alabama}
 \affil[2]{University of Alabama}
 \affil[3]{University of Toronto}
 \affil[4]{University of Chicago}
@@ -267,38 +267,68 @@ natural variability (``just weather'') or to other human causes
 (e.g.\ land use, infrastructure), since both score $-1$ on the
 climate-vs-natural axis but imply different policy narratives.
 
+\paragraph{Full article text retrieval.} All coding---both the human
+calibration pass and the LLM full-sample pass---is performed on the
+complete article text rather than search-engine snippets. Full text
+was retrieved in two stages. First, archived copies of each article
+were obtained via archive.ph, a web archiving service that captures
+complete page content prior to paywall overlays. For articles
+unavailable via archive.ph, full text was retrieved manually via
+Factiva (Dow Jones). Articles for which full text could not be
+recovered by either method are excluded from LLM coding and treated
+as missing in the Attribution Index. This two-stage retrieval
+procedure was adopted following a finding during calibration that
+critical attribution language can appear mid-article and is missed
+with snippet-only coding.
+
 \paragraph{Calibration and validation.} Coding is performed by an
-LLM following the codebook, with a staged validation procedure that
-applies two different reliability bars: a low gate during calibration
-to catch codebook problems cheaply, and a higher target for the
-reliability statistics reported in the paper. First, the researcher
-hand-codes a stratified random calibration sample of approximately 50
-articles (stratified by disaster type and by pre-/post-2010 period)
-for both Relevance and Attribution category. Second, the LLM codes the
-same 50 articles from the codebook alone. Third, human and LLM codes
-are compared using unweighted Cohen's $\kappa$ for the categorical
-Relevance (3-category) and Attribution (5-category) codes; if
-agreement is weak ($\kappa < 0.6$, ``moderate'' or worse on the
-\citet{landiskoch1977} scale), the codebook wording and examples are
-revised and the comparison is repeated before scaling up. This 0.6
-threshold is intentionally low -- its purpose is to catch broken
-category definitions early, not to certify reliability. Once this
-gate is cleared, the LLM codes the remaining articles in the full
-sample. Finally, an independent post-hoc audit sample (approximately
-100 articles, drawn after the full pass) is hand-coded and compared to
-the LLM codes. For this audit sample we report unweighted Cohen's
-$\kappa$ for Relevance (target $\kappa \geq 0.7$); for Attribution, we
-report both unweighted $\kappa$ and a weighted $\kappa$ (linear or
-quadratic weights) that reflects the ordinal structure of the
-underlying scores $\{-1, 0, 0.5, 1\}$, since unweighted $\kappa$ treats
-an A-vs-D disagreement the same as a B-vs-C disagreement despite the
-very different implied score gap (target $\kappa_w \geq 0.7$, ideally
-$\geq 0.8$); and we additionally report the mean absolute difference
-between human- and LLM-assigned numeric scores as a directly
-interpretable companion statistic. Should the audit-sample statistics
-fall short of these targets, this is disclosed and discussed as a
-limitation, since the boundaries between categories B/C and C/E are
-genuinely fuzzy even for human coders.
+LLM following the codebook. The LLM is Claude (model
+\texttt{claude-sonnet-4-6}; Anthropic, Inc.), accessed via the
+Anthropic Messages API, with the codebook supplied as a system prompt
+and the full article text as the user message. Validation follows a
+staged procedure that applies two different reliability bars: a low
+gate during calibration to catch codebook problems cheaply, and a
+higher target for the reliability statistics reported in the paper.
+First, the researcher hand-codes a stratified random calibration
+sample of 50 articles (stratified by disaster type and by
+pre-/post-2010 period) for both Relevance and Attribution category.
+Second, the LLM codes the same 50 articles from the codebook alone.
+Third, human and LLM codes are compared using unweighted Cohen's
+$\kappa$ for the categorical Relevance (3-category) and Attribution
+(5-category) codes; if agreement is weak ($\kappa < 0.6$,
+``moderate'' or worse on the \citet{landiskoch1977} scale), the
+codebook wording and examples are revised and the comparison is
+repeated before scaling up. This 0.6 threshold is intentionally
+low---its purpose is to catch broken category definitions early, not
+to certify reliability.
+
+The calibration gate was cleared on the initial pass. Unweighted
+$\kappa$ for Relevance was 0.81 (``substantial agreement'' on the
+\citealt{landiskoch1977} scale, exceeding the $\kappa \geq 0.7$
+reporting target). For Attribution, both unweighted and linearly
+weighted $\kappa$ were 1.00 (perfect agreement), with a mean absolute
+difference of 0.00 between human- and LLM-assigned numeric scores.
+The four residual Relevance disagreements were all boundary cases
+(\texttt{Trash} vs.\ \texttt{Borderline}) where the correct
+classification is genuinely ambiguous; the relevant decision rules
+have been noted in the codebook for the full-sample pass.
+
+Once this gate is cleared, the LLM codes all remaining articles in
+the full sample. Finally, an independent post-hoc audit sample
+(approximately 100 articles, drawn after the full pass) is
+hand-coded and compared to the LLM codes. For this audit sample we
+report unweighted Cohen's $\kappa$ for Relevance (target $\kappa \geq
+0.7$); for Attribution, we report both unweighted $\kappa$ and a
+weighted $\kappa$ (linear weights) that reflects the ordinal structure
+of the underlying scores $\{-1, 0, 0.5, 1\}$, since unweighted
+$\kappa$ treats an A-vs-D disagreement the same as a B-vs-C
+disagreement despite the very different implied score gap (target
+$\kappa_w \geq 0.7$, ideally $\geq 0.8$); and we additionally report
+the mean absolute difference between human- and LLM-assigned numeric
+scores as a directly interpretable companion statistic. Should the
+audit-sample statistics fall short of these targets, this is
+disclosed and discussed as a limitation, since the boundaries between
+categories B/C and C/E are genuinely fuzzy even for human coders.
 
 \subsection{Disaster-Level Attribution Index}
 
