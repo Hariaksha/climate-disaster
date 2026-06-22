@@ -331,7 +331,7 @@ def main():
             skipped += 1
             continue
 
-        if existing_status in ('found', 'needs_factiva'):
+        if existing_status in ('found', 'needs_factiva', 'trash_gallery'):
             skipped += 1
             if article_num % 100 == 0:
                 print(f'[{article_num:4d}/{total_rows}] ... skipping already-processed rows ...')
