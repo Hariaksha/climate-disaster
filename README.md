@@ -19,9 +19,6 @@ To answer this question, the project proceeds in two stages:
 1. **Data collection:** A pipeline that systematically scrapes and collects newspaper articles covering NOAA-documented U.S. billion-dollar climate disasters (2000–2024).
 2. **NLP & sentiment analysis:** Applying natural language processing models to classify the causal framing of each article and construct an **Attribution Index** at both the article and disaster level.
 
-A draft working paper based on this project is available on Overleaf:
-[https://www.overleaf.com/read/wmwmpqvgtfvv#38ab4a](https://www.overleaf.com/read/gzsqhmhfnqdx#c1e0fe)
-
 ---
 
 ## 🔬 Research Design
