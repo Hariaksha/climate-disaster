@@ -168,13 +168,14 @@ and wire-service coverage.  By contrast, none of the disaster's own
 physical characteristics---type, CPI-adjusted cost, death toll,
 duration, or geography---predict attribution framing.
 
-The paper proceeds as follows.  Section~\ref{sec:data} describes the
-NOAA disaster dataset, the newspaper collection pipeline, and the
-construction of the Attribution Index.  Section~\ref{sec:methods}
-details the LLM coding procedure, validation design, and regression
-specifications.  Section~\ref{sec:results} presents the main results,
-and Section~\ref{sec:results_robustness} reports the robustness checks.
-Sections~6 and~7 discuss implications and conclude.
+The paper proceeds as follows.  Section~2 reviews the related
+literature.  Section~\ref{sec:data} describes the NOAA disaster
+dataset, the newspaper collection pipeline, and the construction of the
+Attribution Index.  Section~\ref{sec:methods} details the LLM coding
+procedure, validation design, and regression specifications.
+Section~\ref{sec:results} presents the main results, and
+Section~\ref{sec:results_robustness} reports the robustness checks.
+Sections~7 and~8 discuss implications and conclude.
 
 
 % ===================================================================
@@ -210,6 +211,67 @@ this agenda from the small-$N$ qualitative approach of
 community-interview depth for systematic coverage of all 313 NOAA
 billion-dollar disaster events over a 25-year panel.
 
+\citet{boykoff2004} provide the foundational empirical account of how
+professional norms distort climate coverage in the U.S.\ prestige press.
+Analyzing 636 articles drawn from a sample of 3,543 in the \emph{New
+York Times}, \emph{Washington Post}, \emph{Los Angeles Times}, and
+\emph{Wall Street Journal} over 1988--2002, they find that the
+journalistic norm of ``balance'' caused roughly equal column space to be
+given to the scientific consensus and a small minority of skeptics:
+52.65\% of articles balanced anthropogenic and natural-variability
+claims, while only 35.29\% emphasized the anthropogenic view --- despite
+the scientific community's growing consensus that human activities are a
+primary driver of warming.  They term this ``balance as bias,'' an
+informational distortion that systematically amplifies the minority
+skeptical view.  The pre-2010 mean Attribution Index in our data
+($-0.105$) is consistent with this balance norm persisting into the early
+2000s before eroding over the subsequent decade.
+
+\citet{boykoff2007} documents the subsequent erosion of this norm.
+Extending the analysis to 2003--2006 and adding three UK newspapers
+(the \emph{Guardian}/\emph{Observer}, \emph{Independent}, and \emph{The
+Times}) alongside the same four U.S. prestige papers, Boykoff finds that
+the share of U.S. coverage providing ``balanced accounts'' fell
+from 36.6\% in 2003 (statistically significant divergence from scientific
+consensus, $z = 7.73$, $p<0.001$) to just 3.3\% in 2006 (no longer
+significant), while coverage attributing significant human contributions
+rose from 61.0\% in 2003 to 96.7\% by 2006.  UK coverage showed no
+significant divergence from scientific consensus in any year.  The study
+concludes that the journalistic balance norm in U.S. prestige-press
+coverage of climate change had been effectively abandoned by 2005--2006.
+This erosion provides a bridge between the prior literature and the
+period we study: the pre-2010 decline in biased balance sets the
+baseline from which our Attribution Index begins its upward trend.
+
+\citet{feldman2017} examine the same set of prestige newspapers---the
+\emph{New York Times}, \emph{Wall Street Journal}, \emph{Washington
+Post}, and \emph{USA Today}---over 2006--2011, applying a
+threat-and-efficacy framework to 642 articles.  That study finds
+systematic differences in framing across outlets: the \emph{Wall Street
+Journal} is significantly less likely than the other three papers to
+discuss climate impacts (21.6\% of articles vs.\ 40--58\% for the other
+three), least likely to represent climate change as a present-day or
+U.S.-specific threat, and most likely to use conflict framing (53\% of
+articles) and negative economic framing (35.1\%) when discussing climate
+actions.  Positive efficacy information is similarly rare across all four
+papers.  This prior evidence of systematic outlet-level divergence in
+prestige-press climate framing directly motivates our outlet-lean
+analysis in Section~\ref{sec:outlet_results}.
+
+\citet{feldman2012} document analogous outlet-level divergence in cable
+news.  A content analysis of 269 transcripts mentioning global warming
+from Fox News ($n=182$), CNN ($n=66$), and MSNBC ($n=21$) over 2007--2008
+finds that approximately 60\% of Fox coverage is dismissive of climate
+change versus under 20\% accepting, while CNN and MSNBC both exceed
+70\% accepting.  A linked survey of a nationally representative sample
+($N = 2{,}057$) finds that Fox News viewership is associated with lower
+global warming acceptance ($\beta = -0.10$, $p<.001$), while CNN/MSNBC
+viewership predicts higher acceptance ($\beta = +0.08$, $p<.001$) ---
+effect sizes comparable to those of political partisanship.  Together
+with \citet{feldman2017}, these results establish that outlet-level
+differences in climate framing pervade both newspaper and broadcast
+news, and are detectable in audience beliefs as well as content.
+
 \citet{chinn2020} analyze U.S.\ climate news coverage over 1985--2017
 using Wordfish, an unsupervised text-scaling method, to measure the
 ideological positioning of climate discourse over time.  They find that
@@ -242,6 +304,32 @@ outlets systematically produce less anthropogenic attribution framing,
 ideologically sorted audiences are exposed to less such framing,
 reinforcing the partisan gap in concern identified by
 \citet{carmichael2017}.
+
+\citet{mccright2011} provide the audience-level foundation for this
+partisan divide.  Analyzing ten nationally representative Gallup polls
+(2001--2010; pooled $N$ up to 9{,}113 respondents), they document
+growing ideological and partisan polarization in Americans' climate
+change beliefs.  Liberals and Democrats are significantly more likely
+than conservatives and Republicans to accept the scientific consensus
+(e.g., 68.8\% of liberals vs.\ 42.6\% of conservatives believe global
+warming effects have already begun, in pooled data), and this gap
+widened substantially over the decade: the ideological spread grew from
+18 percentage points in 2001 (67.1\% of liberals vs.\ 49.4\% of
+conservatives) to 44 percentage points in 2010 (74.8\% vs.\ 30.2\%);
+the analogous partisan gap grew from 11 to 41 percentage points.
+Political orientation also moderates the effects of education and
+self-reported understanding: greater knowledge and education increase
+climate concern among liberals and Democrats, but the same effects are
+weaker or even negative among conservatives and Republicans --- a
+pattern consistent with biased information processing, in which new
+climate information is filtered through pre-existing partisan
+commitments rather than updating beliefs uniformly.  All eight
+political orientation $\times$ year interaction terms are statistically
+significant ($p < .05$ to $p < .001$), confirming that this polarization
+was not static but actively growing over the period our Attribution
+Index covers.  This audience-level polarization is directly relevant to
+the demand-side interpretation of our outlet-lean finding in
+Section~\ref{sec:outlet_results}.
 
 \citet{hai2022} use a preregistered two-wave survey experiment
 (approximately 9,174 respondents total) to examine how politicians'
@@ -753,15 +841,17 @@ $N_d \geq 1$ (i.e.\ excluding the 104 events with no Relevant coverage):
 where $\text{Type}_d$ is a vector of disaster-type dummies (reference
 category: Severe Storm, the modal type); cost and deaths are
 log-transformed given their strong right skew ($\ln(\text{Deaths}+1)$ to
-accommodate zero-fatality events); $\text{CoastalShare}_d$ and
-$\text{RedShare}_d$ are, respectively, the share of $d$'s affected states
-that border an ocean or the Gulf of Mexico and the share that voted
-Republican in the 2020 presidential election -- shares rather than a single
-``primary state'' because the \texttt{States} field lists affected states
-alphabetically, not by impact, so no reliable primary state can be
-recovered for multi-state events; and $N_d$ (the number of Relevant
-articles) is included as a control for coverage volume. Standard errors are
-heteroskedasticity-robust (HC1).
+accommodate zero-fatality events); $\ln(\text{Duration}_d)$ is the log of
+the number of calendar days between the disaster's NOAA-listed begin and
+end dates; $\text{CoastalShare}_d$ and $\text{RedShare}_d$ are,
+respectively, the share of $d$'s affected states that border an ocean or
+the Gulf of Mexico and the share that voted Republican in the 2020
+presidential election -- shares rather than a single ``primary state''
+because the \texttt{States} field lists affected states alphabetically, not
+by impact, so no reliable primary state can be recovered for multi-state
+events; $\text{Year}_d$ is the calendar year of the disaster's begin date;
+and $N_d$ (the number of Relevant articles) is included as a control for
+coverage volume. Standard errors are heteroskedasticity-robust (HC1).
 
 \paragraph{Article-level specification.} For each Relevant article $i$
 covering disaster $d$:
@@ -821,6 +911,7 @@ $\text{AttributionIndex}_d$ on year (slope $=0.0129$, $p<0.001$).}
 \label{fig:trend_over_time}
 \end{figure}
 
+\FloatBarrier
 Figure~\ref{fig:index_hist} shows the full cross-sectional distribution
 underlying that trend. The index is exactly $0.0$ for 55.5\% of covered
 disasters (consistent with category C, no causal attribution, being the
@@ -1273,7 +1364,22 @@ relatively flat through the 2000s before undergoing a discrete jump in
 of climate coverage polarize around 2010, but the specific practice of
 linking extreme weather events to anthropogenic causes --- which had
 been net-negative through the early 2000s --- shifted decisively toward
-net-positive after that point.
+net-positive after that point.  The negative pre-2010 mean in our data
+is also consistent with the ``balance as bias'' era documented by
+\citet{boykoff2004}: their finding that the U.S.\ prestige press over
+1988--2002 systematically gave equal weight to the scientific consensus
+and a small minority of skeptics --- producing net-neutral or
+net-skeptical aggregate framing --- aligns with our pre-2010 mean
+Attribution Index of $-0.105$.  \citet{boykoff2007} provides the
+temporal bridge: extending the analysis through 2006, he documents that
+the balance norm eroded sharply in U.S. prestige-press coverage by
+2005--2006, with balanced coverage falling from 36.6\% in 2003
+(statistically significant, $p<0.001$) to 3.3\% in 2006 (no longer
+significant) --- a convergence toward scientific consensus that preceded
+our post-2010 shift to net-positive attribution framing by roughly
+five years, and that together with \citet{chinn2020}'s structural break
+in 2010--2011 traces a coherent timeline from the balance-norm era to
+the present.
 
 What drove the post-2010 shift?  This paper identifies the \emph{when}
 more cleanly than the \emph{why}, and several mechanisms are plausible.
@@ -1318,8 +1424,26 @@ substantially less.  If the same demand-side logic applies to
 attribution framing specifically, much of the lean gradient we document
 may reflect outlets supplying the causal narratives their audiences
 expect: right-leaning outlets serve audiences who, consistent with
-\citet{carmichael2017}'s evidence on partisan media and climate
-concern, are less receptive to anthropogenic attribution framing.
+\citet{carmichael2017}'s evidence on partisan media and climate concern
+and \citet{mccright2011}'s documentation of growing partisan
+polarization in climate beliefs over 2001--2010 (ideological gap
+widening from 18 to 44 percentage points over the decade), are less
+receptive to anthropogenic attribution framing.
+
+Content-analytic evidence from the same newspapers we study lends
+additional support to this outlet-lean gradient.  \citet{feldman2017}
+find, for 2006--2011, that the \emph{Wall Street Journal} --- the
+prestige daily with the most right-leaning editorial orientation ---
+was significantly less likely than the \emph{New York Times},
+\emph{Washington Post}, and \emph{USA Today} to discuss climate
+impacts, least likely to frame climate change as an immediate or
+domestic threat, and most likely to use conflict and negative-economic
+frames for climate actions.  Our outlet-lean result extends this
+single-paper comparison: the lean-attribution gradient holds
+continuously across a wide range of outlets (from wire services to
+regional papers), persists over a substantially longer sample period
+(2000--2024), and survives controls for disaster type, year, and
+disaster fixed effects.
 
 The national--local asymmetry qualifies this picture importantly.  The
 lean gradient is strongly significant among national-outlet articles
@@ -1565,7 +1689,20 @@ Extending the analysis to a more representative sample of local
 coverage --- particularly as the local-newspaper industry continues to
 contract \citep{ellger2024} --- would clarify whether the
 national--local asymmetry in lean effects we document is a durable
-structural feature or a power artifact.
+structural feature or a power artifact.  A related extension is to
+expand the article universe itself through a more comprehensive
+outlet-discovery and retrieval pipeline.  The current sample is
+constrained by the coverage of the search infrastructure used to
+collect candidate articles, which skews toward outlets with high web
+presence and may underrepresent regional and community newspapers that
+are indexed less systematically.  Crucially, the validated LLM coding
+procedure developed here --- with inter-rater reliability established
+at $\kappa = 0.96$ for relevance and $\kappa_w = 0.96$--$0.98$ for
+attribution --- would transfer directly to a larger corpus without
+modification.  The pipeline's scalability means that improvements
+upstream in outlet discovery and article retrieval directly translate
+into a richer panel of attribution framing data, without requiring any
+re-validation of the coding step itself.
 
 Future work could also link the Attribution Index directly to
 downstream outcomes.  \citet{magontier2020} shows that storm media
