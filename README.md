@@ -1,70 +1,82 @@
-# 🌪️ Climate Disaster Attribution & Sentiment Analysis
+# 🌪️ Reading the Storm: Media Attribution of U.S. Climate Disasters, 2000–2024
 
-A research project combining a large-scale media coverage dataset with natural language processing (NLP) and sentiment analysis to study how U.S. climate disasters are attributed in newspaper coverage — and how attribution patterns vary across geography, disaster type, and other dimensions.
+An empirical paper and supporting codebase studying how U.S. newspaper coverage frames the causal origins of major climate disasters — and how attribution patterns vary across outlets, time, and geography.
 
-Built on top of NOAA's Weather and Climate Billion-Dollar Disasters dataset.
+Built on top of NOAA's Weather and Climate Billion-Dollar Disasters dataset and a validated LLM-based coding pipeline.
 
-> **Collaborators:** Hari Gunda, Dr. Michael Price (University of Alabama), Dr. Angela Doku (University of Toronto), Dr. John List (University of Chicago)
+> **Authors:** Hariaksha Gunda (University of Alabama), Dr. Michael Price (University of Alabama), Dr. Angela Doku (University of Toronto), Dr. John List (University of Chicago)
 
 ---
 
 ## 📌 Overview
 
-This project investigates how local newspaper coverage of major U.S. climate disasters frames the *cause* of those disasters. Specifically, we ask:
+This project asks: when a hurricane makes landfall or a drought devastates a region, does U.S. newspaper coverage attribute the disaster to anthropogenic climate change, to natural variability, or to nothing at all?
 
-> **Are climate disasters attributed to man-made causes and climate change, or to natural and random variation — and what factors drive differences in attribution?**
+To answer this, we construct an **Attribution Index** measuring the causal framing of 1,252 newspaper articles covering all 313 NOAA billion-dollar disaster events from 2000 to 2024. Article-level scores are aggregated to a disaster-level index and analyzed with panel regressions.
 
-To answer this question, the project proceeds in two stages:
-
-1. **Data collection:** A pipeline that systematically scrapes and collects newspaper articles covering NOAA-documented U.S. billion-dollar climate disasters (2000–2024).
-2. **NLP & sentiment analysis:** Applying natural language processing models to classify the causal framing of each article and construct an **Attribution Index** at both the article and disaster level.
+> **Paper:** *Reading the Storm: Media Attribution of United States Climate Disasters, 2000–2024* — see `paper/main.pdf`
 
 ---
 
-## 🔬 Research Design
+## 🔬 Key Findings
 
-### Stage 1 — Data Collection
+1. **Silence dominates.** 74.8% of articles contain no causal claim. The mean disaster-level Attribution Index is 0.028 — close to neutral — and 55.5% of covered disasters receive an index of exactly 0.
 
-The pipeline cross-references NOAA's official disaster event records with real-time web search to build a structured media coverage dataset. Disaster types include tropical cyclones, wildfires, floods, droughts, winter storms, freezes, and severe storms.
+2. **Attribution has risen over time.** Framing has shifted at 0.013 index points per year (*p* < 0.001), from a pre-2010 mean of −0.105 to a post-2010 mean of +0.057, consistent with a structural break in partisan climate discourse around 2010–2011.
 
-### Stage 2 — NLP & Attribution Analysis
+3. **Outlet political lean predicts attribution.** A one-point increase in Ad Fontes Bias score is associated with a 0.011-point decrease in the Attribution Index (*p* = 0.013, clustered SE). This effect is concentrated in national and wire-service coverage and is robust to disaster fixed effects and alternative lean measures.
 
-Each collected article is processed using NLP to classify its causal framing along a spectrum:
-
-| Attribution Type | Description |
-|---|---|
-| **Anthropogenic** | Explicitly links disaster to climate change, human activity, fossil fuels, or man-made causes |
-| **Natural / Random** | Frames disaster as a natural, random, or historically normal event |
-| **Mixed / Neutral** | No clear causal attribution or balanced framing |
-
-From these classifications, we construct an **Attribution Index** — a continuous measure of anthropogenic vs. natural causal framing — at the:
-- **Article level** (individual piece of coverage)
-- **Disaster event level** (aggregated across all articles about a given disaster)
-
-### Stage 3 — Variation in Attribution
-
-We then examine how the Attribution Index varies across:
-
-- **Geography (state):** Do newspapers in coastal states attribute disasters differently than inland states? Do politically red vs. blue states differ?
-- **Disaster type:** Are wildfires and hurricanes more likely to be attributed to climate change than floods or severe storms?
-- **Disaster severity:** Does damage magnitude (in USD) predict anthropogenic framing?
-- **Time:** Has attribution shifted between 2000 and 2024 as climate science has entered mainstream discourse?
-- **Newspaper characteristics:** Do national outlets differ from local papers? Do circulation size or regional identity matter?
+4. **Physical disaster characteristics do not predict attribution.** Disaster type, CPI-adjusted cost, death toll, duration, and geography are all statistically indistinguishable from zero.
 
 ---
 
 ## 📁 Repository Structure
-- `code/`
-  - `google_search.py` — Google Custom Search API pipeline (primary)
-  - `newspaper_finder.py` — DuckDuckGo-based newspaper URL finder
-  - `newspaper_finder_perplexity.py` — Perplexity API variant of newspaper finder
-- `data/`
-  - `events-US-2000-2024-Q4.csv` — NOAA billion-dollar disaster events
-  - `Access World News Database.xlsx` - Newspaper URLs enriched with live status
-- `goals.docx` - Project goals and research design notes
-- `updates.docx` - Progress updates
-- `README.md`
 
+```
+climate-disaster/
+├── paper/
+│   ├── main.tex                   # LaTeX source
+│   ├── main.pdf                   # Compiled paper (40 pages)
+│   ├── references.bib             # BibTeX bibliography (17 entries)
+│   ├── attribution_codebook.md    # LLM coding codebook
+│   └── figures/                   # Paper figures
+├── literature/
+│   ├── literature-review.xlsx     # Annotated bibliography (17 papers)
+│   └── *.pdf                      # Source PDFs for all cited papers
+├── code/
+│   ├── google_search.py           # Google Custom Search API pipeline
+│   ├── llm_coder.py               # LLM attribution coding pipeline
+│   ├── audit_reliability.py       # Inter-rater reliability statistics
+│   ├── sample_audit.py            # Audit sample selection
+│   ├── Stage3_Regressions.ipynb   # Regression analysis
+│   ├── newspaper_finder.py        # Newspaper URL finder (DuckDuckGo)
+│   ├── newspaper_finder_perplexity.py  # Newspaper URL finder (Perplexity API)
+│   └── build_state_engine_mapping.py
+├── data/
+│   ├── events-US-2000-2024-Q4.csv          # NOAA billion-dollar disaster events
+│   ├── events-US-2000-2024-Q4-states.csv   # Events enriched with affected states
+│   ├── Access World News Database.xlsx      # Newspaper URLs with live status
+│   ├── pse_domains.json                     # Programmable Search Engine domains
+│   └── pse_coverage_analysis.json
+├── attribution.xlsx               # Article-level and disaster-level Attribution Index
+└── climate_disaster_article_urls.csv  # Retrieved article URLs (up to 20 per disaster)
+```
+
+---
+
+## 📊 Attribution Index
+
+Each article is classified on a five-point scale following a written codebook and validated against an independent human audit (κ = 0.96 for relevance, weighted κ_w = 0.96–0.98 for attribution):
+
+| Code | Score | Description |
+|------|-------|-------------|
+| A | +1 | Explicit anthropogenic attribution (links disaster to climate change or human activity) |
+| B | +0.5 | Hedged or contextual climate mention |
+| C | 0 | No causal attribution (pure event reporting) |
+| D | −1 | Explicit non-climate / natural-variability attribution |
+| M | 0† | Mixed or contested framing (flagged separately) |
+
+Article-level scores are averaged to produce a **disaster-level Attribution Index** ∈ [−1, +1].
 
 ---
 
@@ -73,45 +85,46 @@ We then examine how the Attribution Index varies across:
 **Disaster events:** NOAA's Weather and Climate Billion-Dollar Disasters database
 > 📎 [NOAA Billion-Dollar Disasters (1980–2024)](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0209268)
 
-- Coverage: U.S. weather events from 1980–2024 (pipeline targets **2000–2024**)
-- Cost values are in **millions of USD**
+- Coverage: U.S. events 2000–2024 (313 events meeting billion-dollar threshold in real 2024 dollars)
 - Disaster types: Tropical Cyclone, Wildfire, Flooding, Drought, Winter Storm, Freeze, Severe Storm
 
-**Media coverage:** Newspaper articles collected via Google Custom Search API and the Access World News Database, targeting local and regional U.S. newspapers.
+**Media coverage:** Newspaper articles retrieved via Google Custom Search API (multiple Programmable Search Engine CX IDs targeting U.S. newspaper domains).
+
+**Outlet lean ratings:** Ad Fontes Media bias scores (and AllSides as a robustness check), matched to outlet domains.
 
 ---
 
 ## ⚙️ Pipeline Overview
 
-### `google_search.py` — Primary Search Engine
+### `google_search.py` — Article Retrieval
 
-Uses the **Google Custom Search API** with multiple Custom Search Engine (CX) IDs to retrieve news article URLs for each disaster event.
+Uses the Google Custom Search API to retrieve news article URLs for each NOAA disaster event.
 
 Key features:
 - Builds disaster-type-specific search queries (e.g., hurricane name + year + region)
-- Filters results by publication date window (event dates ± grace period)
+- Filters results by publication date window (event dates ± scaled grace period of 14–42 days)
 - Requires U.S. geographic relevance and disaster keyword matching
 - Blocks non-article pages (sitemaps, author pages, tag pages, PDFs, homepages)
 - Removes noise (sports, politics, international events)
 - Deduplicates results by normalized URL
 - Outputs up to 20 article URLs per disaster event
-- Supports test mode (2 events per disaster type) and full production mode
 - Auto-saves checkpoints every 25 disasters
 
-### `newspaper_finder.py` — Newspaper Website Locator
+### `llm_coder.py` — Attribution Coding
 
-Uses **DuckDuckGo Search** to find the official homepage URLs of local newspapers, given a spreadsheet of newspaper names, cities, and states.
+Applies a large language model (Claude, Anthropic) to classify each article against the written codebook in two passes: (1) relevance screening and (2) attribution category assignment.
 
-Key features:
-- Resume-safe (skips already-processed rows)
-- Verifies URLs are live and not parked/redirected
-- Blocks aggregators, archives, and social media domains
-- Exponential backoff on rate limits with randomized delays
-- Saves progress to Excel every 5 rows
+### `audit_reliability.py` — Reliability Statistics
 
-### `newspaper_finder_perplexity.py`
+Computes inter-rater reliability (Cohen's κ and linearly weighted κ_w) between LLM codes and independent human audit codes.
 
-Alternative version of the newspaper finder using the **Perplexity API** for higher-quality search results on ambiguous or hard-to-find newspapers.
+### `newspaper_finder.py` / `newspaper_finder_perplexity.py` — Newspaper URL Discovery
+
+Finds official homepage URLs for local newspapers given a list of names, cities, and states. DuckDuckGo and Perplexity API variants.
+
+### `Stage3_Regressions.ipynb` — Analysis
+
+Disaster-level and article-level OLS regressions with heteroskedasticity-robust (HC1) and clustered standard errors. Includes robustness checks: ordered logit, disaster fixed effects, alternative lean measures, subsample splits.
 
 ---
 
@@ -120,65 +133,26 @@ Alternative version of the newspaper finder using the **Perplexity API** for hig
 ### Prerequisites
 
 ```bash
-pip install requests pandas openpyxl ddgs
+pip install requests pandas openpyxl ddgs anthropic
 ```
 
 For `google_search.py`, you will also need a [Google Custom Search API key](https://developers.google.com/custom-search/v1/overview) and one or more CX engine IDs.
 
-### Running the Google Search Pipeline
-
-1. Set `INPUT_FILE` to your NOAA events CSV path
-2. Set `TEST_MODE = True` for a quick trial run (14 sampled events)
-3. Set `TEST_MODE = False` for a full production run
+### Running the Search Pipeline
 
 ```bash
 python code/google_search.py
 ```
 
-### Running the Newspaper Finder
+Set `TEST_MODE = True` for a quick trial run (14 sampled events) or `False` for the full production run.
 
-1. Set `SPREADSHEET_PATH` to your Excel file of newspaper names
-2. Ensure columns are ordered: `Title | City | State | Language`
+### Running the LLM Coder
 
 ```bash
-python code/newspaper_finder.py
+python code/llm_coder.py
 ```
 
----
-
-## 📊 Output
-
-| File | Description |
-|---|---|
-| `climate_disaster_article_urls.csv` | One row per disaster with up to 20 article URLs |
-| `climate_disaster_checkpoint.csv` | Auto-saved checkpoint (every 25 disasters) |
-| `Access World News Database.xlsx` | Newspaper URLs enriched with live status |
-
----
-
-## 🔍 Search Quality Controls
-
-The pipeline applies several filters to ensure only relevant, high-quality article URLs are collected:
-
-- **Date window:** Articles must fall within the disaster event period + a scaled grace period (14–42 days)
-- **Geographic filter:** Requires at least one U.S. state, region, or institutional term
-- **Disaster relevance:** Keyword match in title, or 2+ matches across title and snippet
-- **Geo-specificity:** If a disaster name contains a known place, that place must appear in the article
-- **Noise filter:** Rejects articles matching off-topic phrases (sports, elections, international events)
-
----
-
-## 💡 Applications
-
-The Attribution Index and underlying dataset have broad applications across research, policy, and communication:
-
-- **Climate communication research:** Understand how media framing of disasters has evolved over time and whether attribution language has tracked the scientific consensus on climate change.
-- **Public perception & risk modeling:** Identify regions where anthropogenic attribution is systematically low, which may signal gaps in public climate risk awareness and inform targeted communication strategies.
-- **Political economy of climate policy:** Examine whether local media attribution patterns correlate with state-level climate policy adoption, electoral outcomes, or public opinion survey data.
-- **Insurance & financial risk:** Help insurers and financial institutions understand regional media environments that may affect policyholder behavior and willingness to pay for climate risk products.
-- **Disaster preparedness & public health:** Inform agencies like FEMA and state emergency management offices about how disaster framing affects community preparedness and response behavior.
-- **Nonprofit & advocacy strategy:** Enable environmental organizations to identify media markets where attributional framing is weakest and where targeted outreach may be most impactful.
-- **Academic benchmarking:** Provide a replicable methodology and open dataset for future NLP studies on climate media, political communication, and environmental journalism.
+Reads article URLs from `climate_disaster_article_urls.csv`, fetches article text, and outputs attribution codes to `attribution.xlsx`.
 
 ---
 
