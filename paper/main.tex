@@ -133,7 +133,9 @@ This paper removes that barrier.  We construct an Attribution Index
 covering 1,252 newspaper articles retrieved for all 313 NOAA
 billion-dollar disaster events from 2000 to 2024, using a validated
 large language model (LLM) coding pipeline that follows the three-step
-text-as-data framework of \citet{gentzkow2019}.  Each article is first
+text-as-data framework of \citet{gentzkow2019}, including the manual
+audit they recommend to cross-check fitted classifications against
+human codes.  Each article is first
 screened for relevance and then assigned to one of five attribution
 categories: explicit anthropogenic framing ($+1$), hedged or contextual
 climate mention ($+0.5$), no causal attribution ($0$), explicit
@@ -410,7 +412,12 @@ and (iii)~use the predicted values in subsequent economic analysis.
 Our pipeline maps directly onto this framework, with steps (i)--(ii)
 implemented by a large language model (Claude, Anthropic) following a
 written codebook, and step (iii) implemented by the regression analysis
-in Section~\ref{sec:results}.
+in Section~\ref{sec:results}.  \citet{gentzkow2019} also specifically
+recommend manual audits --- cross-checking a subset of fitted values
+against human-produced codes --- as a best practice for validating
+text-as-data pipelines; our independent 100-article post-hoc audit
+(Section~\ref{sec:results_robustness}) follows this recommendation
+directly.
 
 \citet{gentzkow2010} represent the paradigmatic application of
 text-as-data methods to measure media bias, using the frequency of
@@ -713,7 +720,7 @@ low---its purpose is to catch broken category definitions early, not
 to certify reliability.
 
 The calibration gate was cleared on the initial pass. Unweighted
-$\kappa$ for Relevance was 0.81 (``substantial agreement'' on the
+$\kappa$ for Relevance was 0.81 (``almost perfect agreement'' on the
 \citealt{landiskoch1977} scale, exceeding the $\kappa \geq 0.7$
 reporting target). For Attribution, both unweighted and linearly
 weighted $\kappa$ were 1.00 (perfect agreement), with a mean absolute
